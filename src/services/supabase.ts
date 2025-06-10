@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize the Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -10,37 +9,28 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Database types
 export interface Player {
   id: string;
   x: number;
   y: number;
   color: string;
-  name?: string;
+  name: string;
 }
 
-// Initialize realtime subscription
-export const initializeRealtimePlayers = (onPlayerChange: (players: Player[]) => void) => {
-  return supabase
-    .channel('players')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'players'
-      },
-      () => {
-        // Fetch all players when any change occurs
-        supabase
-          .from('players')
-          .select('*')
-          .then(({ data }) => {
-            if (data) {
-              onPlayerChange(data as Player[]);
-            }
-          });
-      }
-    )
-    .subscribe();
+export const insertPlayer = async (player: Player) => {
+  const { error } = await supabase.from('players').insert(player);
+  if (error) throw error;
+};
+
+export const updatePlayerPosition = async (id: string, x: number, y: number) => {
+  const { error } = await supabase
+    .from('players')
+    .update({ x, y })
+    .eq('id', id);
+  if (error) throw error;
+};
+
+export const deletePlayer = async (id: string) => {
+  const { error } = await supabase.from('players').delete().eq('id', id);
+  if (error) throw error;
 };

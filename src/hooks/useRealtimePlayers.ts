@@ -1,73 +1,102 @@
-import { useState, useEffect } from 'react';
-import { supabase, initializeRealtimePlayers } from '../services/supabase';
+import { useState, useEffect, useRef } from 'react';
+import { supabase, deletePlayer } from '../services/supabase';
 import type { Player } from '../services/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
-export const useRealtimePlayers = () => {
+export const useRealtimePlayers = (currentPlayerId: string | null) => {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
-    // Fetch initial players
-    const fetchPlayers = async () => {
+    const fetchInitialPlayers = async () => {
       const { data, error } = await supabase.from('players').select('*');
       if (error) {
-        console.error('Error fetching players:', error);
+        console.error('Error fetching initial players:', error);
       } else if (data) {
         setPlayers(data as Player[]);
       }
     };
 
-    fetchPlayers();
+    fetchInitialPlayers();
 
-    // Subscribe to realtime updates
-    const channel: RealtimeChannel = initializeRealtimePlayers(setPlayers);
+    const channel = supabase
+      .channel('realtime-players')
+      .on<
+        Player
+      >(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'players' },
+        (payload) => {
+          console.log('Change received!', payload);
+          const newPlayer = payload.new as Player;
+          const oldPlayer = payload.old as Player;
 
-    // Create a new player if one doesn't exist for this session
-    const createPlayer = async () => {
-      const localPlayerId = localStorage.getItem('playerId');
-      if (localPlayerId) {
-        const { data } = await supabase.from('players').select('id').eq('id', localPlayerId).single();
-        if (data) {
-            setCurrentPlayerId(localPlayerId);
-            return; // Player already exists
+          setPlayers((prevPlayers) => {
+            switch (payload.eventType) {
+              case 'INSERT':
+                return [...prevPlayers, newPlayer];
+              case 'UPDATE':
+                return prevPlayers.map((p) =>
+                  p.id === newPlayer.id ? newPlayer : p
+                );
+              case 'DELETE':
+                return prevPlayers.filter((p) => p.id !== oldPlayer.id);
+              default:
+                return prevPlayers;
+            }
+          });
         }
-      }
+      )
+      .subscribe((status, err) => {
+        if (err) {
+          console.error('Realtime subscription error:', err);
+        }
+        console.log('Realtime subscription status:', status);
+      });
 
-      const newPlayerId = crypto.randomUUID();
-      const newPlayer: Player = {
-        id: newPlayerId,
-        x: Math.floor(Math.random() * (800 - 4)), // GAME_WIDTH - PLAYER_SIZE
-        y: Math.floor(Math.random() * (600 - 4)), // GAME_HEIGHT - PLAYER_SIZE
-        color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
-      };
+    channelRef.current = channel;
 
-      const { error } = await supabase.from('players').insert(newPlayer);
-      if (error) {
-        console.error('Error creating player:', error);
-      } else {
-        localStorage.setItem('playerId', newPlayerId);
-        setCurrentPlayerId(newPlayerId);
-        // No need to call setPlayers here as the realtime subscription will pick it up
-      }
-    };
-
-    createPlayer();
-
-    // Clean up subscription and player on unmount
     return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-      const playerIdToRemove = localStorage.getItem('playerId');
-      if (playerIdToRemove) {
-        supabase.from('players').delete().eq('id', playerIdToRemove).then(({ error }) => {
-          if (error) console.error('Error deleting player on exit:', error);
-          localStorage.removeItem('playerId');
-        });
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        console.log('Unsubscribed from realtime-players');
       }
     };
   }, []);
 
-  return { players, currentPlayerId };
+  // Handle player exit
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      if (currentPlayerId) {
+        try {
+          // Attempt to delete the player before the tab closes
+          // This might not always succeed due to browser limitations
+          await deletePlayer(currentPlayerId);
+          console.log(`Player ${currentPlayerId} marked for deletion.`);
+        } catch (error) {
+          console.error('Error deleting player on exit:', error);
+        }
+      }
+    };
+
+    if (currentPlayerId) {
+        window.addEventListener('beforeunload', handleBeforeUnload);
+    }
+
+    return () => {
+      if (currentPlayerId) {
+        window.removeEventListener('beforeunload', handleBeforeUnload);
+        // Ensure player is deleted if the component unmounts for other reasons
+        // (e.g., navigation within a single-page app)
+        // However, Supabase Realtime presence can also handle this if configured.
+        // For this example, we rely on beforeunload and explicit delete.
+        if (channelRef.current?.state === 'joined') { // Check if channel is still active
+             deletePlayer(currentPlayerId).catch(err => console.error('Error in unmount cleanup delete:', err));
+        }
+      }
+    };
+  }, [currentPlayerId]);
+
+  return players;
 };

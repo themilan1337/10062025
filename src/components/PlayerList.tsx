@@ -1,3 +1,4 @@
+import React from 'react';
 import type { Player } from '../services/supabase';
 
 interface PlayerListProps {
@@ -5,30 +6,32 @@ interface PlayerListProps {
   currentPlayerId: string | null;
 }
 
-export const PlayerList = ({ players, currentPlayerId }: PlayerListProps) => {
+const PlayerList: React.FC<PlayerListProps> = ({ players, currentPlayerId }) => {
+  if (!players.length) {
+    return (
+      <div className="p-4 bg-gray-800 text-gray-400 rounded-lg shadow-md">
+        No players currently active.
+      </div>
+    );
+  }
+
   return (
-    <div className="fixed top-4 right-4 bg-gray-800 p-4 rounded-lg shadow-lg max-w-xs w-full">
-      <h3 className="text-white font-semibold mb-3 text-lg">Active Players</h3>
-      <div className="space-y-2 max-h-96 overflow-y-auto">
+    <div className="p-4 bg-gray-800 rounded-lg shadow-md text-white max-h-60 overflow-y-auto">
+      <h3 className="text-lg font-semibold mb-3 border-b border-gray-700 pb-2">Active Players ({players.length})</h3>
+      <ul>
         {players.map((player) => (
-          <div
-            key={player.id}
-            className={`flex items-center space-x-3 p-2 rounded ${player.id === currentPlayerId ? 'bg-gray-700' : 'bg-gray-900'}`}
-          >
-            <div
-              className="w-4 h-4 rounded"
+          <li key={player.id} className={`flex items-center mb-2 p-2 rounded-md ${player.id === currentPlayerId ? 'bg-blue-600' : 'bg-gray-700'}`}>
+            <span
+              className="w-4 h-4 rounded-full mr-3 border-2 border-gray-900"
               style={{ backgroundColor: player.color }}
-            />
-            <span className="text-white">
-              {player.name || 'Anonymous'}
-              {player.id === currentPlayerId && ' (You)'}
-            </span>
-          </div>
+            ></span>
+            <span className="font-medium">{player.name || 'Anonymous'}</span>
+            {player.id === currentPlayerId && <span className="ml-auto text-xs text-blue-200">(You)</span>}
+          </li>
         ))}
-      </div>
-      <div className="mt-3 text-gray-400 text-sm">
-        {players.length} player{players.length !== 1 ? 's' : ''} online
-      </div>
+      </ul>
     </div>
   );
 };
+
+export default PlayerList;
