@@ -14,7 +14,6 @@ const GAME_HEIGHT = 600;
 
 function App() {
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
-  const [playerName, setPlayerName] = useState<string | null>(null);
   const [showNameForm, setShowNameForm] = useState(true);
 
   const allPlayers = useRealtimePlayers(currentPlayer?.id || null);
@@ -30,7 +29,6 @@ function App() {
   };
 
   const handleNameSubmit = useCallback(async (name: string) => {
-    setPlayerName(name);
     setShowNameForm(false);
 
     const newPlayerId = uuidv4();
@@ -73,7 +71,7 @@ function App() {
         });
     }
 
-    const handleBeforeUnload = async (event: BeforeUnloadEvent) => {
+    const handleBeforeUnload = async () => {
       if (currentPlayer) {
         // Standard way to ask for confirmation before leaving
         // event.preventDefault();
