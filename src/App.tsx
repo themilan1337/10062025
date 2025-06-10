@@ -5,9 +5,9 @@ import PlayerNameForm from './components/PlayerNameForm';
 import PlayerList from './components/PlayerList';
 import { usePlayerMovement } from './hooks/usePlayerMovement';
 import { useRealtimePlayers } from './hooks/useRealtimePlayers';
-import { database, auth } from './services/firebase'; // Assuming auth might be needed later
+import { database } from './services/firebase'; // Assuming auth might be needed later
 import type { Player } from './services/firebase';
-import { ref, set, remove, onDisconnect } from 'firebase/database';
+import { ref, set, onDisconnect } from 'firebase/database';
 import './App.css';
 
 const GAME_WIDTH = 800;

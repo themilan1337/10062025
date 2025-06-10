@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { database } from '../services/firebase';
 import type { Player } from '../services/firebase';
-import { ref, onValue, off, remove, onDisconnect, set } from 'firebase/database';
+import { ref, onValue, off, remove, onDisconnect } from 'firebase/database';
 
 export const useRealtimePlayers = (currentPlayerId: string | null) => {
   const [players, setPlayers] = useState<Player[]>([]);
