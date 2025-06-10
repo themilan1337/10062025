@@ -22,7 +22,7 @@ const getRandomColor = () => {
 const useRealtimePlayers = (initialName: string) => {
   const [players, setPlayers] = useState<Record<string, Player>>({});
   const [playerId, setPlayerId] = useState<string | null>(null);
-  const [playerName, setPlayerName] = useState<string>(initialName);
+  const [playerName] = useState<string>(initialName); // Removed setPlayerName
 
   const playerRef = useRef<any>(null); // Firebase Ref
 
