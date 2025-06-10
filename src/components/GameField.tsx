@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import type { Player } from '../services/supabase';
+import type { Player } from '../services/firebase';
 
 interface GameFieldProps {
   players: Player[];

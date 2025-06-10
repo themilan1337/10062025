@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Player } from '../services/supabase';
+import type { Player } from '../services/firebase';
 
 interface PlayerListProps {
   players: Player[];

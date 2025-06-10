@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
-import { updatePlayerPosition } from '../services/supabase';
-import type { Player } from '../services/supabase';
+import { database } from '../services/firebase';
+import type { Player } from '../services/firebase';
+import { ref, update } from 'firebase/database';
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
@@ -33,7 +34,8 @@ export const usePlayerMovement = (player: Player | null, setPlayer: React.Dispat
 
       if (x !== player.x || y !== player.y) {
         try {
-          await updatePlayerPosition(player.id, x, y);
+          const playerRef = ref(database, `players/${player.id}`);
+          await update(playerRef, { x, y });
           // Optimistically update local state for smoother perceived movement
           setPlayer(prev => (prev ? { ...prev, x, y } : null));
         } catch (error) {

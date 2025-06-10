@@ -5,8 +5,9 @@ import PlayerNameForm from './components/PlayerNameForm';
 import PlayerList from './components/PlayerList';
 import { usePlayerMovement } from './hooks/usePlayerMovement';
 import { useRealtimePlayers } from './hooks/useRealtimePlayers';
-import { supabase, insertPlayer, deletePlayer } from './services/supabase';
-import type { Player } from './services/supabase';
+import { database, auth } from './services/firebase'; // Assuming auth might be needed later
+import type { Player } from './services/firebase';
+import { ref, set, remove, onDisconnect } from 'firebase/database';
 import './App.css';
 
 const GAME_WIDTH = 800;
@@ -41,9 +42,17 @@ function App() {
     };
 
     try {
-      await insertPlayer(newPlayer);
+      const playerRef = ref(database, 'players/' + newPlayer.id);
+      await set(playerRef, newPlayer);
       setCurrentPlayer(newPlayer);
       console.log('Player joined:', newPlayer);
+
+      // Setup onDisconnect here as well, or ensure useRealtimePlayers covers it robustly
+      // Duplicating onDisconnect setup can be tricky; prefer centralizing it in the hook.
+      // However, if App.tsx is the source of truth for currentPlayer creation,
+      // it might make sense to initiate onDisconnect here.
+      const disconnectRef = onDisconnect(playerRef);
+      disconnectRef.remove().catch(err => console.error('Error setting onDisconnect in App.tsx:', err));
     } catch (error) {
       console.error('Error inserting player:', error);
       // Handle error, e.g., show a message to the user
@@ -53,23 +62,9 @@ function App() {
   
   // Graceful disconnect
  useEffect(() => {
-    const channel = supabase.channel('db-changes');
-    const presenceChannel = supabase.channel('game-presence', {
-        config: {
-            presence: {
-                key: currentPlayer?.id || 'unknown',
-            },
-        },
-    });
-
-    if (currentPlayer) {
-        presenceChannel.subscribe(async (status) => {
-            if (status === 'SUBSCRIBED') {
-                const presenceTrackStatus = await presenceChannel.track({ player_id: currentPlayer.id, name: currentPlayer.name });
-                console.log('Presence track status:', presenceTrackStatus);
-            }
-        });
-    }
+    // Firebase presence and disconnect logic is now primarily in useRealtimePlayers
+    // However, we might still want to handle specific App-level cleanup or initial setup here.
+    // For now, much of the direct Supabase channel logic is removed or handled by the hook.
 
     const handleBeforeUnload = async () => {
       if (currentPlayer) {
@@ -82,7 +77,7 @@ function App() {
           // For Supabase Realtime, often the server handles disconnects based on presence.
           // If using explicit delete on client side, ensure it's robust.
           console.log('Attempting to clean up player on unload:', currentPlayer.id);
-          // await deletePlayer(currentPlayer.id); // This might be redundant if useRealtimePlayers handles it
+          // Firebase's onDisconnect in useRealtimePlayers should handle this.
         } catch (error) {
           console.error('Error during beforeunload cleanup:', error);
         }
@@ -96,11 +91,9 @@ function App() {
       if (currentPlayer) {
         // Ensure player is deleted if App unmounts (e.g. SPA navigation)
         // This is a more reliable place than just beforeunload for some scenarios
-        deletePlayer(currentPlayer.id).catch(err => console.error('Error deleting player on App unmount:', err));
-      }
-      supabase.removeChannel(channel);
-      if (presenceChannel) {
-        supabase.removeChannel(presenceChannel);
+        // Firebase's onDisconnect in useRealtimePlayers should handle this.
+        // If specific app-level cleanup for Firebase is needed, add it here.
+        // For example, if there were direct Firebase listeners in App.tsx (not recommended, keep in hooks)
       }
     };
   }, [currentPlayer]);
