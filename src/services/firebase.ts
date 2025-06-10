@@ -1,10 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getDatabase } from 'firebase/database';
+import { getDatabase, ref, set, onValue, onDisconnect, remove, child, get, update } from 'firebase/database';
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -12,20 +8,24 @@ const firebaseConfig = {
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
 
-export const auth = getAuth(app);
-export const firestore = getFirestore(app);
-export const database = getDatabase(app);
+const playersRef = ref(database, 'players');
 
-export interface Player {
-  id: string;
-  x: number;
-  y: number;
-  color: string;
-  name: string;
-}
+export {
+  database,
+  playersRef,
+  ref,
+  set,
+  onValue,
+  onDisconnect,
+  remove,
+  child,
+  get,
+  update,
+};

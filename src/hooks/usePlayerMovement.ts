@@ -1,56 +1,59 @@
-import { useEffect, useCallback } from 'react';
-import { database } from '../services/firebase';
-import type { Player } from '../services/firebase';
-import { ref, update } from 'firebase/database';
+import { useEffect } from 'react';
+import { database, ref, update } from '../services/firebase';
+import type { Player } from './useRealtimePlayers'; // Assuming Player interface is exported
 
 const GAME_WIDTH = 800;
 const GAME_HEIGHT = 600;
-const PLAYER_SIZE = 1; // Logical size, visual size is 4x4
+const PLAYER_SIZE = 1; // Logical size, visual size will be handled by rendering
+const MOVE_STEP = 5; // Pixels to move per key press
 
-export const usePlayerMovement = (player: Player | null, setPlayer: React.Dispatch<React.SetStateAction<Player | null>>) => {
-  const handleKeyDown = useCallback(
-    async (event: KeyboardEvent) => {
-      if (!player) return;
+export const usePlayerMovement = (playerId: string | null, currentPlayer: Player | null) => {
+  useEffect(() => {
+    if (!playerId || !currentPlayer) return;
 
-      let { x, y } = player;
-      const moveAmount = 1;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!currentPlayer) return;
+
+      let newX = currentPlayer.x;
+      let newY = currentPlayer.y;
 
       switch (event.key.toLowerCase()) {
         case 'w':
-          y = Math.max(0, y - moveAmount);
-          break;
-        case 'a':
-          x = Math.max(0, x - moveAmount);
+        case 'arrowup':
+          newY -= MOVE_STEP;
           break;
         case 's':
-          y = Math.min(GAME_HEIGHT - PLAYER_SIZE, y + moveAmount);
+        case 'arrowdown':
+          newY += MOVE_STEP;
+          break;
+        case 'a':
+        case 'arrowleft':
+          newX -= MOVE_STEP;
           break;
         case 'd':
-          x = Math.min(GAME_WIDTH - PLAYER_SIZE, x + moveAmount);
+        case 'arrowright':
+          newX += MOVE_STEP;
           break;
         default:
-          return;
+          return; // Ignore other keys
       }
 
-      if (x !== player.x || y !== player.y) {
-        try {
-          const playerRef = ref(database, `players/${player.id}`);
-          await update(playerRef, { x, y });
-          // Optimistically update local state for smoother perceived movement
-          setPlayer(prev => (prev ? { ...prev, x, y } : null));
-        } catch (error) {
-          console.error('Error updating player position:', error);
-          // Optionally revert optimistic update here if needed
-        }
-      }
-    },
-    [player, setPlayer]
-  );
+      // Boundary checks
+      newX = Math.max(0, Math.min(GAME_WIDTH - PLAYER_SIZE, newX));
+      newY = Math.max(0, Math.min(GAME_HEIGHT - PLAYER_SIZE, newY));
 
-  useEffect(() => {
+      // Update Firebase if position changed
+      if (newX !== currentPlayer.x || newY !== currentPlayer.y) {
+        const playerRef = ref(database, `players/${playerId}`);
+        update(playerRef, { x: newX, y: newY })
+          .catch(err => console.error('Error updating player position:', err));
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleKeyDown]);
+  }, [playerId, currentPlayer]); // Rerun if playerId or currentPlayer object changes
 };

@@ -1,67 +1,81 @@
-import { useState, useEffect } from 'react';
-import { database } from '../services/firebase';
-import type { Player } from '../services/firebase';
-import { ref, onValue, off, remove, onDisconnect } from 'firebase/database';
+import { useState, useEffect, useRef } from 'react';
+import { database, playersRef, onValue, set, onDisconnect, remove, ref } from '../services/firebase';
+import { v4 as uuidv4 } from 'uuid';
 
-export const useRealtimePlayers = (currentPlayerId: string | null) => {
-  const [players, setPlayers] = useState<Player[]>([]);
-  const playersRef = ref(database, 'players');
+export interface Player {
+  id: string;
+  x: number;
+  y: number;
+  color: string;
+  name: string;
+}
+
+const getRandomColor = () => {
+  const letters = '0123456789ABCDEF';
+  let color = '#';
+  for (let i = 0; i < 6; i++) {
+    color += letters[Math.floor(Math.random() * 16)];
+  }
+  return color;
+};
+
+const useRealtimePlayers = (initialName?: string) => {
+  const [players, setPlayers] = useState<Record<string, Player>>({});
+  const [playerId, setPlayerId] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState<string>('');
+
+  const playerRef = useRef<any>(null); // Firebase Ref
 
   useEffect(() => {
-    const listener = onValue(playersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const playerList = Object.values(data) as Player[];
-        setPlayers(playerList);
+    const id = uuidv4();
+    setPlayerId(id);
+    const name = initialName || `Player_${id.substring(0, 4)}`;
+    setPlayerName(name);
+
+    const color = getRandomColor();
+    const initialX = 400; // Center of 800x600 field
+    const initialY = 300;
+
+    if (id) {
+      playerRef.current = ref(database, `players/${id}`);
+      const newPlayer: Player = {
+        id,
+        x: initialX,
+        y: initialY,
+        color,
+        name,
+      };
+
+      set(playerRef.current, newPlayer)
+        .then(() => {
+          console.log('Player added to Firebase');
+          onDisconnect(playerRef.current).remove()
+            .then(() => console.log('onDisconnect setup for player', id))
+            .catch(err => console.error('Error setting up onDisconnect:', err));
+        })
+        .catch(err => console.error('Error adding player to Firebase:', err));
+    }
+
+    // Listen for changes to all players
+    const unsubscribe = onValue(playersRef, (snapshot) => {
+      const playersData = snapshot.val();
+      if (playersData) {
+        setPlayers(playersData);
       } else {
-        setPlayers([]);
+        setPlayers({}); // No players or node deleted
       }
     });
 
-    // Firebase listener cleanup
+    // Cleanup on unmount
     return () => {
-      off(playersRef, 'value', listener);
+      unsubscribe();
+      if (playerRef.current) {
+        remove(playerRef.current).catch(err => console.error('Error removing player on unmount:', err));
+      }
     };
-  }, []);
+  }, [initialName]); // Re-run if initialName changes, though typically it won't after first load
 
-  // Handle player exit using onDisconnect
-  useEffect(() => {
-    if (currentPlayerId) {
-      const playerRef = ref(database, `players/${currentPlayerId}`);
-      const onDisconnectRef = onDisconnect(playerRef);
-      onDisconnectRef.remove()
-        .then(() => console.log(`onDisconnect rule set for player ${currentPlayerId}`))
-        .catch((error) => console.error('Error setting onDisconnect rule:', error));
-
-      // Keep alive / update presence (optional, can be more complex)
-      // For simplicity, we're just ensuring removal on disconnect.
-      // A more robust presence system might involve updating a 'lastSeen' timestamp.
-
-      // Fallback for tab close / component unmount if onDisconnect doesn't fire immediately
-      // or if you want to be more explicit.
-      const handleBeforeUnload = () => {
-        // Firebase onDisconnect should handle this, but as a fallback:
-        remove(playerRef).catch(err => console.error('Error in beforeunload cleanup delete:', err));
-      };
-
-      window.addEventListener('beforeunload', handleBeforeUnload);
-
-      return () => {
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-        // Explicitly remove player if component unmounts and onDisconnect hasn't fired
-        // This is a bit aggressive and might conflict with onDisconnect if not careful.
-        // Consider if onDisconnect is sufficient for your needs.
-        // For this example, we'll rely primarily on onDisconnect and beforeunload.
-        // remove(playerRef).catch(err => console.error('Error in unmount cleanup delete:', err));
-
-        // Cancel the onDisconnect operation if the component unmounts cleanly
-        // and the user isn't actually disconnecting (e.g., navigating away in SPA)
-        // This prevents removal if the user is just navigating within the app.
-        // However, for a simple game where unmount means 'left the game', removal is desired.
-        onDisconnectRef.cancel().catch(err => console.error('Error cancelling onDisconnect:', err));
-      };
-    }
-  }, [currentPlayerId]);
-
-  return players;
+  return { players, playerId, playerName };
 };
+
+export default useRealtimePlayers;

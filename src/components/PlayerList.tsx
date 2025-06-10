@@ -1,32 +1,39 @@
 import React from 'react';
-import type { Player } from '../services/firebase';
+import type { Player } from '../hooks/useRealtimePlayers';
 
 interface PlayerListProps {
-  players: Player[];
+  players: Record<string, Player>;
   currentPlayerId: string | null;
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({ players, currentPlayerId }) => {
-  if (!players.length) {
+  const sortedPlayers = Object.values(players).sort((a, b) => a.name.localeCompare(b.name));
+
+  if (sortedPlayers.length === 0) {
     return (
-      <div className="p-4 bg-gray-800 text-gray-400 rounded-lg shadow-md">
-        No players currently active.
+      <div className="w-64 bg-gray-800 p-4 rounded-lg shadow-xl ml-4">
+        <h2 className="text-xl font-semibold mb-3 text-indigo-400">Active Players</h2>
+        <p className="text-gray-400">No players currently in the game.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4 bg-gray-800 rounded-lg shadow-md text-white max-h-60 overflow-y-auto">
-      <h3 className="text-lg font-semibold mb-3 border-b border-gray-700 pb-2">Active Players ({players.length})</h3>
-      <ul>
-        {players.map((player) => (
-          <li key={player.id} className={`flex items-center mb-2 p-2 rounded-md ${player.id === currentPlayerId ? 'bg-blue-600' : 'bg-gray-700'}`}>
-            <span
-              className="w-4 h-4 rounded-full mr-3 border-2 border-gray-900"
+    <div className="w-64 bg-gray-800 p-4 rounded-lg shadow-xl ml-4 flex-shrink-0" style={{maxHeight: '600px', overflowY: 'auto'}}>
+      <h2 className="text-xl font-semibold mb-3 text-indigo-400">Active Players ({sortedPlayers.length})</h2>
+      <ul className="space-y-2">
+        {sortedPlayers.map((player) => (
+          <li
+            key={player.id}
+            className={`flex items-center p-2 rounded-md ${player.id === currentPlayerId ? 'bg-indigo-700' : 'bg-gray-700'}`}
+          >
+            <div
+              className="w-4 h-4 rounded-full mr-3 flex-shrink-0"
               style={{ backgroundColor: player.color }}
-            ></span>
-            <span className="font-medium">{player.name || 'Anonymous'}</span>
-            {player.id === currentPlayerId && <span className="ml-auto text-xs text-blue-200">(You)</span>}
+            />
+            <span className={`truncate ${player.id === currentPlayerId ? 'font-bold text-white' : 'text-gray-300'}`}>
+              {player.name}
+            </span>
           </li>
         ))}
       </ul>
