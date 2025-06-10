@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRealtimePlayers } from './hooks/useRealtimePlayers';
+import useRealtimePlayers from './hooks/useRealtimePlayers';
 import { usePlayerMovement } from './hooks/usePlayerMovement';
 import GameField from './components/GameField';
 import LoginForm from './components/LoginForm';
